@@ -1,5 +1,5 @@
 /*
-Feeding experimentation device 3 (FED3) library 
+Feeding experimentation device 3 (FED3) library
 Code by Lex Kravitz, adapted to Arduino library format by Eric Lin
 alexxai@wustl.edu
 May 2021
@@ -78,7 +78,7 @@ class FED3 {
         void classInterruptHandler(void);
         void begin();
         void run();
-        
+
         // SD logging
         SdFat SD;
         File logfile;       // Create file object
@@ -86,7 +86,7 @@ class FED3 {
         File configfile;    // Create another file object
         File startfile;     // Create another file object
         File stopfile;      // Create another file object
-        char filename[21];  // Array for file name data logged to named in setup
+        char filename[23];  // Array for file name data logged to named in setup
         void logdata();
         void CreateFile();
         void CreateDataFile ();
@@ -95,7 +95,7 @@ class FED3 {
         void writeFEDmode();
         void error(uint8_t errno);
         void getFilename(char *filename);
-        bool suppressSDerrors = false;  //set to true to suppress SD card errors at startup 
+        bool suppressSDerrors = false;  //set to true to suppress SD card errors at startup
 
         // Battery
         float measuredvbat = 1.0;
@@ -110,7 +110,7 @@ class FED3 {
         void rightPixel(int R, int G, int B, int W);
         void leftPokePixel(int R, int G, int B, int W);
         void rightPokePixel(int R, int G, int B, int W);
-        
+
         // Display functions
         void UpdateDisplay();
         void DisplaySDError();
@@ -133,11 +133,11 @@ class FED3 {
         void FED3MenuScreen();
         void psygeneMenu();
         void SetClock();
-        
+
         //BNC input/output
 		void ReadBNC(bool blinkGreen);
         bool BNCinput = false;
-        
+
         // Motor
         void ReleaseMotor();
         int numMotorTurns = 0;
@@ -155,7 +155,7 @@ class FED3 {
 
         void Tone(int freq, int duration);
         void stopTone();
-        
+
         // Pelet and poke functions
         void CheckRatio();
         void logLeftPoke();
@@ -173,7 +173,7 @@ class FED3 {
         int minPokeTime = 0;
         void randomizeActivePoke(int max);
         int consecutive = 0;
-        
+
         //jam movements
 		bool RotateDisk(int steps);
         bool ClearJam();
@@ -191,7 +191,7 @@ class FED3 {
         bool DisplayTimed = false;
         byte FEDmode = 1;
         byte previousFEDmode = FEDmode;
-  
+
         // event counters
         int LeftCount = 0;
         int RightCount = 0;
@@ -200,7 +200,7 @@ class FED3 {
         int timeout = 0;
 
         bool countAllPokes = true;
-        
+
         // state variables
         bool activePoke = 1;  // 0 for right, 1 for left, defaults to left poke active
         bool Left = false;
@@ -238,7 +238,7 @@ class FED3 {
         bool FED3Menu = false;
         bool psygene = false;
         bool tempSensor = false;
-        
+
         int EndTime = 0;
         int ratio = 1;
         int previousFR = FR;
@@ -246,7 +246,7 @@ class FED3 {
 
         bool SetFED = false;
         bool setTimed = false;
-        
+
         // Neopixel strip
         Adafruit_NeoPixel strip = Adafruit_NeoPixel(10, NEOPIXEL, NEO_GRBW + NEO_KHZ800);
         // Display

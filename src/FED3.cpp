@@ -3,7 +3,7 @@
   Code by Lex Kravitz, adapted to Arduino library format by Eric Lin
   alexxai@wustl.edu
   erclin@ucdavis.edu
-  December 2020 
+  December 2020
 
   The first FED device was developed by Nguyen at al and published in 2016:
   https://www.ncbi.nlm.nih.gov/pubmed/27060385
@@ -52,7 +52,7 @@ static void outsideRightTriggerHandler(void) {
                                                                                                         Main loop
 **************************************************************************************************************************************************/
 void FED3::run() {
-  //This should be called at least once per loop.  It updates the time, updates display, and controls sleep 
+  //This should be called at least once per loop.  It updates the time, updates display, and controls sleep
   if (digitalRead(PELLET_WELL) == HIGH) {  //check for pellet
     PelletAvailable = false;
   }
@@ -109,7 +109,7 @@ void FED3::logRightPoke(){
     }
 
     logdata();
-    Right = false; 
+    Right = false;
   }
 }
 
@@ -125,7 +125,7 @@ void FED3::randomizeActivePoke(int max){
   else {
     consecutive = 0;
   }
-  
+
   //if consecutive pokes are too many, swap pokes
   if (consecutive >= max){
     if (activePoke == 0) {
@@ -144,9 +144,9 @@ void FED3::randomizeActivePoke(int max){
 void FED3::Feed(int pulse, bool pixelsoff) {
   //Run this loop repeatedly until statement below is false
   bool pelletDispensed = false;
-  
-  do {	
-	
+
+  do {
+
     if (pelletDispensed == false) {
 	    pelletDispensed = RotateDisk(-300);
     }
@@ -154,87 +154,63 @@ void FED3::Feed(int pulse, bool pixelsoff) {
     if (pixelsoff==true){
       pixelsOff();
     }
-    
+
     //If pellet is detected during or after this motion
-    if (pelletDispensed == true) {    
+    if (pelletDispensed == true) {
       ReleaseMotor ();
       pelletTime = millis();
-      
+
       display.fillCircle(25, 99, 5, BLACK);
       display.refresh();
-      retInterval = (millis() - pelletTime);
-      //while pellet is present and under 60s has elapsed
-      while (digitalRead (PELLET_WELL) == LOW and retInterval < 60000) {  //After pellet is detected, hang here for up to 1 minute to detect when it is removed
+
+      // This new loop provides unlimited retrieval time with a hybrid power mode.
+      while (digitalRead(PELLET_WELL) == LOW) {
         retInterval = (millis() - pelletTime);
-        DisplayRetrievalInt();
-       
-        //Log pokes while pellet is present 
-        if (digitalRead(LEFT_POKE) == LOW) {             //If left poke is triggered
+        DisplayRetrievalInt(); // Update display with current retrieval time
+
+        // Hybrid Power Logic:
+        // For the first 5 minutes (300,000 ms), loop quickly for a responsive timer.
+        // After 5 minutes, sleep for 500ms between checks to save power.
+        if (retInterval > 300000) {
+          delay(500); // Power-saving mode
+        }
+
+        // Log pokes while pellet is present
+        if (digitalRead(LEFT_POKE) == LOW) {
           leftPokeTime = millis();
-          if (countAllPokes) LeftCount ++;
+          if (countAllPokes) LeftCount++;
           leftInterval = 0.0;
           while (digitalRead (LEFT_POKE) == LOW) {}  //Hang here until poke is clear
           leftInterval = (millis()-leftPokeTime);
           UpdateDisplay();
           Event = "LeftWithPellet";
-
           logdata();
-          }
+        }
 
-        if (digitalRead(RIGHT_POKE) == LOW) {            //If right poke is triggered
+        if (digitalRead(RIGHT_POKE) == LOW) {
           rightPokeTime = millis();
-          RightCount ++;
-           rightInterval = 0.0;
+          if (countAllPokes) RightCount++;
+          rightInterval = 0.0;
           while (digitalRead (RIGHT_POKE) == LOW) {}  //Hang here until poke is clear
           rightInterval = (millis()-rightPokeTime);
           UpdateDisplay();
           Event = "RightWithPellet";
-
           logdata();
-          }
-        } 
-      
-      //after 60s has elapsed
-      while (digitalRead (PELLET_WELL) == LOW) { //if pellet is not taken after 60 seconds, wait here and go to sleep
-        run();
-        //Log pokes while pellet is present 
-        if (digitalRead(LEFT_POKE) == LOW) {             //If left poke is triggered
-          leftPokeTime = millis();
-          if (countAllPokes) LeftCount ++;
-          leftInterval = 0.0;
-          while (digitalRead (LEFT_POKE) == LOW) {}  //Hang here until poke is clear
-          leftInterval = (millis()-leftPokeTime);
-          UpdateDisplay();
-          Event = "LeftWithPellet";
-
-          logdata();
-          }
-
-        if (digitalRead(RIGHT_POKE) == LOW) {            //If right poke is triggered
-          rightPokeTime = millis();
-          if (countAllPokes) RightCount ++;
-           rightInterval = 0.0;
-          while (digitalRead (RIGHT_POKE) == LOW) {}  //Hang here until poke is clear
-          rightInterval = (millis()-rightPokeTime);
-          UpdateDisplay();
-          Event = "RightWithPellet";
-
-          logdata();
-          }
+        }
       }
 
       ReleaseMotor ();
       PelletCount++;
-      
-      // If pulse duration is specified, send pulse from BNC port      
+
+      // If pulse duration is specified, send pulse from BNC port
       if (pulse > 0){
-        BNC (pulse, 1);  
+        BNC (pulse, 1);
       }
-      
+
       Left = false;
       Right = false;
       Event = "Pellet";
-      
+
       //calculate IntetPelletInterval
       DateTime now = rtc.now();
       interPelletInterval = now.unixtime() - lastPellet;  //calculate time in seconds since last pellet logged
@@ -244,7 +220,7 @@ void FED3::Feed(int pulse, bool pixelsoff) {
       numMotorTurns = 0; //reset numMotorTurns
       PelletAvailable = true;
       UpdateDisplay();
-      
+
       break;
     }
 
@@ -283,16 +259,16 @@ void FED3::Feed(int pulse, bool pixelsoff) {
 bool FED3::MinorJam(){
 	return RotateDisk(100);
 }
-	
+
 //vibration movement to clear jam
 bool FED3::VibrateJam() {
     DisplayJamClear();
-	
+
 	//simple debounce to ensure pellet is out for at least 250ms
 	if (dispenseTimer_ms(250)) {
 	  display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
 	  return true;
-	}	
+	}
 	for (int i = 0; i < 30; i++) {
 	  if (RotateDisk(120)) {
 	    display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
@@ -309,38 +285,38 @@ bool FED3::VibrateJam() {
 //full rotation to clear jam
 bool FED3::ClearJam() {
     DisplayJamClear();
-	
+
 	if (dispenseTimer_ms(250)) {
 	  display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
 	  return true;
 	}
-	
+
 	for (int i = 0; i < 21 + random(0, 20); i++) {
 	  if (RotateDisk(-i * 4)) {
 	    display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
 	    return true;
 	  }
 	}
-	
+
 	if (dispenseTimer_ms(250)) {
 	  display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
 	  return true;
 	}
-	
+
 	for (int i = 0; i < 21 + random(0, 20); i++) {
 	  if (RotateDisk(i * 4)) {
 	    display.fillRect (5, 15, 120, 15, WHITE);  //erase the "Jam clear" text without clearing the entire screen by pasting a white box over it
 	    return true;
 	  }
 	}
-	
+
 	return false;
 }
 
 bool FED3::RotateDisk(int steps) {
   digitalWrite (MOTOR_ENABLE, HIGH);  //Enable motor driver
-  for (int i = 0; i < (steps>0?steps:-steps); i++) {	
-  
+  for (int i = 0; i < (steps>0?steps:-steps); i++) {
+
     if (digitalRead(LEFT_POKE) == LOW) {             //If left poke is triggered
        leftPokeTime = millis();
        if (countAllPokes) LeftCount ++;
@@ -364,13 +340,13 @@ bool FED3::RotateDisk(int steps) {
 
        logdata();
      }
-    
+
 	  if (steps > 0)
 		  stepper.step(1);
 	  else
-		  stepper.step(-1);	  
+		  stepper.step(-1);
 	  for (int j = 0; j < 20; j++){
-		delayMicroseconds(100);		
+		delayMicroseconds(100);
 		if (digitalRead (PELLET_WELL) == LOW) {
 		  delayMicroseconds(100);
 		  // Debounce
@@ -389,7 +365,7 @@ bool FED3::RotateDisk(int steps) {
 bool FED3::dispenseTimer_ms(int ms) {
   for (int i = 1; i < ms; i++) {
     for (int j = 0; j < 10; j++) {
-  	  delayMicroseconds(100);		
+  	  delayMicroseconds(100);
 	  if (digitalRead (PELLET_WELL) == LOW) {
 		delayMicroseconds(100);
 		// Debounce
@@ -405,9 +381,22 @@ bool FED3::dispenseTimer_ms(int ms) {
 //Timeout function
 
 void FED3::Timeout(int seconds, bool reset, bool whitenoise) {
-  int timeoutStart = millis();
+  unsigned long timeoutStart = millis();
+  unsigned long lastDisplayUpdate = 0;
 
-  while ((millis() - timeoutStart) < (seconds*1000)) {
+  while ((millis() - timeoutStart) < (seconds * 1000)) {
+    // Live countdown timer logic
+    if (millis() - lastDisplayUpdate > 250) { // Update display every 250ms
+      int remainingSeconds = (seconds * 1000 - (millis() - timeoutStart) + 999) / 1000;
+      display.fillRect(5, 20, 140, 25, WHITE); // Clear previous text
+      display.setCursor(6, 36);
+      display.print("Timeout: ");
+      display.print(remainingSeconds);
+      display.print("s");
+      display.refresh();
+      lastDisplayUpdate = millis();
+    }
+
     if (whitenoise) {
       int freq = random(50,250);
       tone(BUZZER, freq, 10);
@@ -423,13 +412,13 @@ void FED3::Timeout(int seconds, bool reset, bool whitenoise) {
         LeftCount ++;
       }
 
-      leftInterval = 0.0;      
+      leftInterval = 0.0;
       while (digitalRead (LEFT_POKE) == LOW) {
         if (whitenoise) {
           int freq = random(50,250);
           tone(BUZZER, freq, 10);
         }
-      }  
+      }
 
       leftInterval = (millis() - leftPokeTime);
       Event = "LeftinTimeOut";
@@ -445,13 +434,13 @@ void FED3::Timeout(int seconds, bool reset, bool whitenoise) {
       }
       rightPokeTime = millis();
 
-      rightInterval = 0.0;  
+      rightInterval = 0.0;
       while (digitalRead (LEFT_POKE) == LOW) {
         if (whitenoise) {
           int freq = random(50,250);
           tone(BUZZER, freq, 10);
         }
-      }   
+      }
       rightInterval = (millis() - rightPokeTime);
       UpdateDisplay();
       Event = "RightinTimeout";
@@ -510,7 +499,7 @@ void FED3::pixelsOff() {
   delay (2); //let things settle
     for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, 0,0,0,0);
-    strip.show();   
+    strip.show();
   }
   digitalWrite (MOTOR_ENABLE, LOW);  //disable motor driver and neopixels
 }
@@ -625,16 +614,16 @@ void FED3::ReadBNC(bool blinkGreen){
 void FED3::UpdateDisplay() {
   //Box around data area of screen
   display.drawRect (5, 45, 158, 70, BLACK);
-  
+
   display.setCursor(5, 15);
   display.print("FED:");
   display.println(FED);
   display.setCursor(6, 15);  // this doubling is a way to do bold type
   display.print("FED:");
   display.fillRect (6, 20, 200, 22, WHITE);  //erase text under battery row without clearing the entire screen
-  display.fillRect (35, 46, 120, 68, WHITE);  //erase the pellet data on screen without clearing the entire screen 
+  display.fillRect (35, 46, 120, 68, WHITE);  //erase the pellet data on screen without clearing the entire screen
   display.setCursor(5, 36); //display which sketch is running
-  
+
   //write the first 8 characters of sessiontype:
   display.print(sessiontype.charAt(0));
   display.print(sessiontype.charAt(1));
@@ -655,16 +644,16 @@ void FED3::UpdateDisplay() {
     display.setCursor(95, 85);
     display.print(RightCount);
   }
-  
+
   display.setCursor(35, 105);
   display.print("Pellets:");
   display.setCursor(95, 105);
   display.print(PelletCount);
-  
+
   if (DisplayTimed==true) {  //If it's a timed Feeding Session
     DisplayTimedFeeding();
   }
-  
+
   DisplayBattery();
   DisplayDateTime();
   DisplayIndicators();
@@ -745,7 +734,7 @@ void FED3::DisplayBattery(){
     display.fillRect (119, 3, 26, 13, WHITE);
     display.fillRect (120, 4, 7, 12, BLACK);
   }
-  
+
   //display voltage
   display.setTextSize(2);
   display.setFont(&Org_01);
@@ -755,7 +744,7 @@ void FED3::DisplayBattery(){
   display.print(measuredvbat, 1);
   display.setFont(&FreeSans9pt7b);
   display.setTextSize(1);
-  
+
   //display temp/humidity sensor indicator if present
   if (tempSensor == true){
     display.setTextSize(1);
@@ -795,7 +784,7 @@ void FED3::DisplayJammed() {
   display.refresh();
   ReleaseMotor();
   delay (2); //let things settle
-  LowPower.sleep(); 
+  LowPower.sleep();
   DisplayJammed();
 }
 
@@ -803,16 +792,22 @@ void FED3::DisplayJammed() {
 void FED3::DisplayRetrievalInt() {
   display.fillRect (85, 22, 70, 15, WHITE); 
   display.setCursor(90, 36);
-  if (retInterval<59000){
-    display.print (retInterval);
-    display.print ("ms");
+  
+  // If retrieval interval is over 100 seconds, display in seconds.
+  if (retInterval >= 100000) {
+    display.print(retInterval / 1000.0, 1); // Display with 1 decimal place
+    display.print("s");
+  } 
+  // Otherwise, display in milliseconds.
+  else {
+    display.print(retInterval);
+    display.print("ms");
   }
   display.refresh();
 }
-
 //Display left poke duration
 void FED3::DisplayLeftInt() {
-  display.fillRect (85, 22, 70, 15, WHITE);  
+  display.fillRect (85, 22, 70, 15, WHITE);
   display.setCursor(90, 36);
   if (leftInterval<10000){
     display.print (leftInterval);
@@ -823,7 +818,7 @@ void FED3::DisplayLeftInt() {
 
 //Display right poke duration
 void FED3::DisplayRightInt() {
-  display.fillRect (85, 22, 70, 15, WHITE);  
+  display.fillRect (85, 22, 70, 15, WHITE);
   display.setCursor(90, 36);
   if (rightInterval<10000){
     display.print (rightInterval);
@@ -839,7 +834,7 @@ void FED3::StartScreen(){
     display.clearDisplay();
     display.setCursor(15, 55);
     display.print("FED3");
-      
+
     //print filename on screen
     display.setTextSize(1);
     display.setCursor(2, 138);
@@ -926,12 +921,12 @@ void FED3::DisplayMouse() {
     display.fillRect (i-25, 73, 95, 33, WHITE);
     previousFEDmode = FEDmode;
     previousFED = FED;
-    
+
     // If one poke is pushed change mode
     if (FED3Menu == true or ClassicFED3 == true or psygene){
       if (digitalRead (LEFT_POKE) == LOW | digitalRead (RIGHT_POKE) == LOW) SelectMode();
     }
-    
+
     // If both pokes are pushed edit device number
     if ((digitalRead(LEFT_POKE) == LOW) && (digitalRead(RIGHT_POKE) == LOW)) {
       tone (BUZZER, 1000, 200);
@@ -981,7 +976,7 @@ void FED3::CreateFile() {
   stopfile.close();
 
   // Name filename in format F###_MMDDYYNN, where MM is month, DD is day, YY is year, and NN is an incrementing number for the number of files initialized each day
-  strcpy(filename, "FED_____________.CSV");  // placeholder filename
+  strcpy(filename, "FED_______________.CSV");  // 16 underscores, placeholder filename
   getFilename(filename);
 }
 
@@ -1038,18 +1033,13 @@ void FED3::logdata() {
     digitalWrite (MOTOR_ENABLE, LOW);  //Disable motor driver and neopixel
   }
   SD.begin(cardSelect, SD_SCK_MHZ(4));
-  
-  //fix filename (the .CSV extension can become corrupted) and open file
-  filename[16] = '.';
-  filename[17] = 'C';
-  filename[18] = 'S';
-  filename[19] = 'V';
+
   logfile = SD.open(filename, FILE_WRITE);
 
-  //if FED3 cannot open file put SD card icon on screen 
+  //if FED3 cannot open file put SD card icon on screen
   display.fillRect (68, 1, 15, 22, WHITE); //clear a space
   if ( ! logfile ) {
-  
+
     //draw SD card icon
     display.drawRect (70, 2, 11, 14, BLACK);
     display.drawRect (69, 6, 2, 10, BLACK);
@@ -1067,9 +1057,9 @@ void FED3::logdata() {
     display.setFont(&FreeSans9pt7b);
     display.setTextSize(1);
   }
-  
+
   /////////////////////////////////
-  // Log data and time 
+  // Log data and time
   /////////////////////////////////
   DateTime now = rtc.now();
   logfile.print(now.month());
@@ -1088,7 +1078,7 @@ void FED3::logdata() {
     logfile.print('0');      // Trick to add leading zero for formatting
   logfile.print(now.second());
   logfile.print(",");
-    
+
   /////////////////////////////////
   // Log temp and humidity
   /////////////////////////////////
@@ -1106,24 +1096,24 @@ void FED3::logdata() {
   /////////////////////////////////
   logfile.print(VER); // Print library version
   logfile.print(",");
-  
+
   /////////////////////////////////
   // Log Trial Info
   /////////////////////////////////
   logfile.print(sessiontype);  //print Sketch identifier
   logfile.print(",");
-  
+
   /////////////////////////////////
   // Log FED device number
   /////////////////////////////////
-  logfile.print(FED); // 
+  logfile.print(FED); //
   logfile.print(",");
 
   /////////////////////////////////
   // Log battery voltage
   /////////////////////////////////
   ReadBatteryLevel();
-  logfile.print(measuredvbat); // 
+  logfile.print(measuredvbat); //
   logfile.print(",");
 
   /////////////////////////////////
@@ -1157,7 +1147,7 @@ void FED3::logdata() {
   /////////////////////////////////
   // Log event type (pellet, right, left)
   /////////////////////////////////
-  logfile.print(Event); 
+  logfile.print(Event);
   logfile.print(",");
 
   /////////////////////////////////
@@ -1168,7 +1158,7 @@ void FED3::logdata() {
     else if (prob_left < prob_right) logfile.print("Right");
     else if (prob_left == prob_right) logfile.print("nan");
   }
-  
+
   else {
     if (activePoke == 0)  logfile.print("Right"); //
     if (activePoke == 1)  logfile.print("Left"); //
@@ -1182,7 +1172,7 @@ void FED3::logdata() {
   /////////////////////////////////
   logfile.print(LeftCount); // Print Left poke count
   logfile.print(",");
-    
+
   logfile.print(RightCount); // Print Right poke count
   logfile.print(",");
 
@@ -1195,21 +1185,14 @@ void FED3::logdata() {
   /////////////////////////////////
   // Log pellet retrieval interval
   /////////////////////////////////
-  if (Event != "Pellet"){
-    logfile.print(sqrt (-1)); // print NaN if it's not a pellet Event
-  }
-  else if (retInterval < 60000 ) {  // only log retrieval intervals below 1 minute (FED should not record any longer than this)
-    logfile.print(retInterval/1000.000); // print interval between pellet dispensing and being taken
-  }
-  else if (retInterval >= 60000) {
-    logfile.print("Timed_out"); // print "Timed_out" if retreival interval is >60s
-  }
-  else {
-    logfile.print("Error"); // print error if value is < 0 (this shouldn't ever happen)
+  if (Event == "Pellet") {
+    logfile.print(retInterval / 1000.000); // Always log the actual interval in seconds
+  } else {
+    logfile.print(sqrt(-1)); // print NaN if it's not a pellet Event
   }
   logfile.print(",");
-  
-  
+
+
   /////////////////////////////////
   // Inter-Pellet-Interval
   /////////////////////////////////
@@ -1220,24 +1203,24 @@ void FED3::logdata() {
     logfile.print (interPelletInterval);
   }
   logfile.print(",");
-      
+
   /////////////////////////////////
   // Poke duration
   /////////////////////////////////
   if (Event == "Pellet"){
-    logfile.println(sqrt (-1)); // print NaN 
+    logfile.println(sqrt (-1)); // print NaN
   }
 
-  else if ((Event == "Left") or (Event == "LeftShort") or (Event == "LeftWithPellet") or (Event == "LeftinTimeout") or (Event == "LeftDuringDispense")) {  // 
+  else if ((Event == "Left") or (Event == "LeftShort") or (Event == "LeftWithPellet") or (Event == "LeftinTimeout") or (Event == "LeftDuringDispense")) {  //
     logfile.println(leftInterval/1000.000); // print left poke timing
   }
 
-  else if ((Event == "Right") or (Event == "RightShort") or (Event == "RightWithPellet") or (Event == "RightinTimeout") or (Event == "RightDuringDispense")) {  // 
+  else if ((Event == "Right") or (Event == "RightShort") or (Event == "RightWithPellet") or (Event == "RightinTimeout") or (Event == "RightDuringDispense")) {  //
     logfile.println(rightInterval/1000.000); // print left poke timing
   }
-  
+
   else {
-    logfile.println(sqrt (-1)); // print NaN 
+    logfile.println(sqrt (-1)); // print NaN
   }
 
   /////////////////////////////////
@@ -1270,32 +1253,34 @@ void FED3::error(uint8_t errno) {
 }
 
 // This function creates a unique filename for each file that
-// starts with the letters: "FED_" 
+// starts with the letters: "FED_"
 // then the date in MMDDYY followed by "_"
 // then an incrementing number for each new file created on the same date
 void FED3::getFilename(char *filename) {
-   DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
-  filename[3] = FED / 100 + '0';
-  filename[4] = FED / 10 + '0';
-  filename[5] = FED % 10 + '0';
-  filename[7] = now.month() / 10 + '0';
-  filename[8] = now.month() % 10 + '0';
-  filename[9] = now.day() / 10 + '0';
-  filename[10] = now.day() % 10 + '0';
-  filename[11] = (now.year() - 2000) / 10 + '0';
-  filename[12] = (now.year() - 2000) % 10 + '0';
-  filename[16] = '.';
-  filename[17] = 'C';
-  filename[18] = 'S';
-  filename[19] = 'V';
+  // Support 4-digit FED numbers
+  filename[3] = (FED / 1000) % 10 + '0';
+  filename[4] = (FED / 100) % 10 + '0';
+  filename[5] = (FED / 10) % 10 + '0';
+  filename[6] = FED % 10 + '0';
+  filename[7] = '_'; // Separator
+  filename[8] = now.month() / 10 + '0';
+  filename[9] = now.month() % 10 + '0';
+  filename[10] = now.day() / 10 + '0';
+  filename[11] = now.day() % 10 + '0';
+  filename[12] = (now.year() - 2000) / 10 + '0';
+  filename[13] = (now.year() - 2000) % 10 + '0';
+  filename[14] = '_'; // Separator
+  // The filename format is now FXXXX_MMDDYY_NN.CSV
+  // The original was F###_MMDDYYNN.CSV - note the underscore change
 
   for (uint8_t i = 0; i < 100; i++) {
-    filename[14] = '0' + i / 10;
-    filename[15] = '0' + i % 10;
+    filename[15] = '0' + i / 10;
+    filename[16] = '0' + i % 10;
+    // The rest of the filename (.CSV) is already in the template from strcpy
 
     if (SD.exists(filename)) {
-      // Open the file to check its length
       File file = SD.open(filename, FILE_READ);
       if (file) {
         int lineCount = 0;
@@ -1306,17 +1291,13 @@ void FED3::getFilename(char *filename) {
         }
         file.close();
 
-        // If the file has less than 3 lines, delete it
-        if (lineCount < 3) {
+        // MODIFIED: Change to < 2 so a file with a header and "EstimatedStart" is NOT deleted
+        if (lineCount < 2) {
           SD.remove(filename);
           break;
         }
-      } else {
-        // If the file cannot be opened, log an error
-        Serial.println("Error opening file for reading.");
       }
     } else {
-      // If the file does not exist, use this filename
       break;
     }
   }
@@ -1328,35 +1309,29 @@ void FED3::getFilename(char *filename) {
 **************************************************************************************************************************************************/
 // Change device number
 void FED3::SetDeviceNumber() {
-  // This code is activated when both pokes are pressed simultaneously from the 
-  //start screen, allowing the user to set the device # of the FED on the device
   while (SetFED == true) {
-    //adjust FED device number
     display.fillRect (0, 0, 200, 80, WHITE);
     display.setCursor(5, 46);
     display.println("Set Device Number");
     display.fillRect (36, 122, 180, 28, WHITE);
-    delay (100);
     display.refresh();
 
     display.setCursor(38, 138);
-    if (FED < 100 & FED >= 10) {
-      display.print ("0");
-    }
-    if (FED < 10) {
-      display.print ("00");
-    }
-    display.print (FED);
+    // Add leading zeros for 4-digit display
+    if (FED < 1000) display.print("0");
+    if (FED < 100) display.print("0");
+    if (FED < 10) display.print("0");
+    display.print(FED);
 
-    delay (100);
+    delay(100);
     display.refresh();
 
     if (digitalRead(RIGHT_POKE) == LOW) {
       FED += 1;
       Click();
       EndTime = millis();
-      if (FED > 700) {
-        FED = 700;
+      if (FED > 9999) { // Set new upper limit
+        FED = 9999;
       }
     }
 
@@ -1364,10 +1339,11 @@ void FED3::SetDeviceNumber() {
       FED -= 1;
       Click();
       EndTime = millis();
-      if (FED < 1) {
-        FED = 0;
+      if (FED < 1) { // Lower limit remains 1
+        FED = 1;
       }
     }
+
     if (millis() - EndTime > 3000) {  // if 3 seconds passes confirm device #
       SetFED = false;
       display.setCursor(5, 70);
@@ -1377,10 +1353,10 @@ void FED3::SetDeviceNumber() {
       EndTime = millis();
       display.clearDisplay();
       display.refresh();
-            
+
       ///////////////////////////////////
       //////////  ADJUST CLOCK //////////
-      while (millis() - EndTime < 3000) { 
+      while (millis() - EndTime < 3000) {
         SetClock();
         delay (10);
       }
@@ -1391,7 +1367,7 @@ void FED3::SetDeviceNumber() {
       delay (1000);
 
       ///////////////////////////////////
-      
+
       while (setTimed == true) {
         // set timed feeding start and stop
         display.fillRect (5, 56, 120, 18, WHITE);
@@ -1447,7 +1423,7 @@ void FED3::SetDeviceNumber() {
 
 //set clock
 void FED3::SetClock(){
- 
+
   DateTime now = rtc.now();
   unixtime = now.unixtime();
 
@@ -1489,7 +1465,7 @@ void FED3::SetClock(){
     rtc.adjust(DateTime(unixtime - 60));
     EndTime = millis();
   }
-  
+
   if (digitalRead(RIGHT_POKE) == LOW) {
     tone (BUZZER, 800, 1);
     rtc.adjust(DateTime(unixtime + 60));
@@ -1510,11 +1486,11 @@ void FED3::ReadBatteryLevel() {
                                                                                                Interrupts and sleep
 **************************************************************************************************************************************************/
 void FED3::disableSleep(){
-  EnableSleep = false;                             
+  EnableSleep = false;
 }
 
 void FED3::enableSleep(){
-  EnableSleep = true;                             
+  EnableSleep = true;
 }
 
 //What happens when pellet is detected
@@ -1617,12 +1593,12 @@ void FED3::begin() {
   display.setRotation(3);
   display.setTextColor(BLACK);
   display.setTextSize(1);
- 
+
   //Is AHT20 temp humidity sensor present?
   if (aht.begin()) {
     tempSensor = true;
   }
- 
+
   // Initialize SD card and create the datafile
   SdFile::dateTimeCallback(dateTime);
   CreateFile();
@@ -1636,11 +1612,15 @@ void FED3::begin() {
   // Create data file for current session
   CreateDataFile();
   writeHeader();
+  // Log an "EstimatedStart" event to capture initial parameters
+  Event = "EstimatedStart";
+  logdata();
+  Event = "None"; // Reset event string
   EndTime = 0;
-  
+
   //read battery level
   ReadBatteryLevel();
-  
+
   // Startup display uses StartScreen() unless ClassicFED3==true, then use ClassicMenu()
   if (ClassicFED3 == true){
     ClassicMenu();
@@ -1669,7 +1649,7 @@ void FED3::FED3MenuScreen() {
   display.fillRect(0, 30, 160, 80, WHITE);
   display.setCursor(10, 40);
   display.print("Select Mode:");
-  
+
   display.setCursor(10, 60);
   //Text to display selected FR ratio
   if (FEDmode == 0) display.print("Mode 1");
@@ -1710,14 +1690,14 @@ void FED3::SelectMode() {
     tone (BUZZER, 2500, 200);
     colorWipe(strip.Color(2, 0, 2), 40); // Color wipe
     colorWipe(strip.Color(0, 0, 0), 20); // OFF
-    
+
     if (psygene) {
       if (FEDmode == -1) FEDmode = 3;
     }
     else {
       if (FEDmode == -1) FEDmode = 11;
     }
-    
+
   }
 
   //If Right Poke is activated
@@ -1729,7 +1709,7 @@ void FED3::SelectMode() {
     colorWipe(strip.Color(0, 0, 0), 20); // OFF
 
     if (psygene) {
-      if (FEDmode == 4) FEDmode = 0; 
+      if (FEDmode == 4) FEDmode = 0;
     }
 
     else {
@@ -1775,7 +1755,7 @@ void FED3::SelectMode() {
     if (FEDmode == 3) display.print("PR1");
     display.refresh();
   }
-  
+
   //Otherwise we don't know them and just use Mode 1 through Mode 4
   else{
     if (FEDmode == 0) display.print("Mode 1");
@@ -1792,7 +1772,7 @@ void FED3::SelectMode() {
     if (FEDmode == 11) display.print("Mode 12");
     display.refresh();
   }
-  
+
   while (millis() - EndTime < 1500) {
     SelectMode();
   }
@@ -1849,7 +1829,7 @@ void FED3::ClassicMenu () {
   display.fillRect(0, 30, 160, 80, WHITE);
   display.setCursor(10, 40);
   display.print("Select Program:");
-  
+
   display.setCursor(10, 60);
   //Text to display selected FR ratio
   if (FEDmode == 0) display.print("Free feeding");
@@ -1864,7 +1844,7 @@ void FED3::ClassicMenu () {
   if (FEDmode == 9) display.print("Self-Stim");
   if (FEDmode == 10) display.print("Self-Stim (Rev)");
   if (FEDmode == 11) display.print("Timed feeding");
-  
+
   DisplayMouse();
   display.clearDisplay();
   display.refresh();
@@ -1909,14 +1889,14 @@ void FED3::psygeneMenu () {
   display.fillRect(0, 30, 160, 80, WHITE);
   display.setCursor(10, 40);
   display.print("Select Program:");
-  
+
   display.setCursor(10, 60);
   //Text to display selected FR ratio
   if (FEDmode == 0) display.print("Bandit_100_0");
   if (FEDmode == 1) display.print("FR1");
   if (FEDmode == 2) display.print("Bandit_80_20");
   if (FEDmode == 3) display.print("PR1");
-  
+
   DisplayMouse();
   display.clearDisplay();
   display.refresh();
